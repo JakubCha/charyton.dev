@@ -1,0 +1,15 @@
+{
+  "name": "charyton",
+  "description": "Claude Code plugins by Jakub Charyton.",
+  "owner": {
+    "name": "Jakub Charyton",
+    "url": "https://charyton.dev"
+  },
+  "plugins": [
+    {
+      "name": "jira-task-log",
+      "source": "./plugins/jira-task-log",
+      "description": "Jira as the task backend for work done with Claude: files issues, reads the open backlog, closes finished work. Sets itself up on first use."
+    }
+  ]
+}

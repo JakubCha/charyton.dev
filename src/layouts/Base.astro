@@ -1,0 +1,77 @@
+---
+import '../styles/global.css';
+import MapLayers from '../components/MapLayers.astro';
+import map from '../data/map.json';
+import { SITE } from '../site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Hide the map furniture on pages where it would fight the content. */
+  bare?: boolean;
+}
+
+const { title, description = SITE.tagline, bare = false } = Astro.props;
+const fullTitle = title ? `${title} — ${SITE.name}` : SITE.name;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? SITE.url);
+const path = Astro.url.pathname;
+const nav = [
+  { label: 'Skills', href: '/#skills' },
+  { label: 'Writing', href: '/blog' },
+  { label: 'Contact', href: 'mailto:hello@charyton.dev' },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title={SITE.name} href="/rss.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap"
+    />
+  </head>
+
+  <body>
+    {!bare && <MapLayers />}
+
+    <div class="masthead">
+      <div class="sheet mrow">
+        <a href="/" class="sig"><b>{SITE.name}</b> <i>/ {SITE.domain}</i></a>
+        <nav class="mnav">
+          {nav.map(item => (
+            <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>{item.label}</a>
+          ))}
+        </nav>
+      </div>
+    </div>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer>
+      <div class="sheet colo halo">
+        <div class="l">
+          {SITE.links.map(l => <a href={l.href}>{l.label}</a>)}
+        </div>
+        <div>
+          BASE LAYER: {map.source.toUpperCase()} · {map.name.toUpperCase()} ·
+          INTERVAL {map.contourInterval} M · © {new Date().getFullYear()}
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

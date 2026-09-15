@@ -1,0 +1,400 @@
+---
+/**
+ * The map furniture: terrain, survey run, coordinate grid, scale bar, cursor readout,
+ * and the layer panel that switches each of them off.
+ *
+ * Layer order matters. Terrain sits at the bottom, the graticule on top of it, and the
+ * page content above both — so the orthogonal grid reads as the governing structure and
+ * the organic contours stay a texture underneath it, the way a kilometre grid is printed
+ * over relief on a topographic sheet.
+ */
+import map from '../data/map.json';
+---
+
+<div
+  class="bg"
+  aria-hidden="true"
+  data-lat0={map.lat0}
+  data-lat1={map.lat1}
+  data-lon0={map.lon0}
+  data-lon1={map.lon1}
+  data-w={map.width}
+  data-h={map.height}
+>
+  <div id="l-contours"><img src="/map/contours.svg" alt="" width={map.width} height={map.height} /></div>
+  <div id="l-flight"><svg preserveAspectRatio="none"><g id="flight"></g></svg></div>
+</div>
+
+<div class="bg grid-layer" aria-hidden="true">
+  <div id="l-graticule"><svg preserveAspectRatio="none"><g id="grat"></g></svg></div>
+</div>
+
+<div class="furniture closed" id="furniture">
+  <div class="f-head" id="fhead"><b>Layers</b><span id="fchev">+</span></div>
+  <div class="f-body">
+    <label class="lyr"><input type="checkbox" id="c-contours" checked /><span>Contours <small>{map.source}</small></span></label>
+    <label class="lyr"><input type="checkbox" id="c-graticule" checked /><span>Graticule <small>scroll = scale</small></span></label>
+    <label class="lyr"><input type="checkbox" id="c-flight" checked /><span>Flight path <small>survey run</small></span></label>
+    <label class="lyr"><input type="checkbox" id="c-readout" checked /><span>Cursor readout</span></label>
+    <label class="lyr"><input type="checkbox" id="c-motion" checked /><span>Motion</span></label>
+    <div class="f-scale">
+      <div class="bar"></div>
+      <div><span>0</span><span id="barlen">5 km</span></div>
+      <div id="ratio">1:250 000</div>
+    </div>
+  </div>
+</div>
+
+<div class="readout" id="readout">
+  <b id="ro-lat">—</b> <span class="d">N</span>&nbsp;
+  <b id="ro-lon">—</b> <span class="d">E</span>&nbsp;
+  <span class="d">el.</span> <b id="ro-el">—</b> <span class="d">m</span>
+</div>
+
+<style>
+  .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden }
+  .bg > div { position: absolute; inset: 0; transition: opacity .45s ease }
+  .bg [hidden] { display: block !important; opacity: 0 !important }
+  .grid-layer { z-index: 2 }
+
+  #l-contours { opacity: .40 }
+  #l-contours img { position: absolute; max-width: none }
+
+  #l-graticule svg, #l-flight svg { position: absolute; inset: 0; width: 100%; height: 100% }
+
+  /* The graticule lines and the whole survey run are created by the script below, at
+     runtime. Astro's scoping stamps a data attribute on elements it renders, and these
+     never get one, so scoped rules would not match them and SVG defaults would win —
+     which paints every path solid black. These have to be global. */
+  :global(#l-graticule line) { stroke: var(--rule); stroke-width: 1 }
+  :global(#l-graticule text) { fill: var(--ink-3); font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em }
+  :global(.fp-ghost) { stroke: var(--rule); stroke-width: 1; fill: none; stroke-dasharray: 3 6; opacity: .85 }
+  :global(.fp-flown) { stroke: var(--accent); stroke-width: 1.2; fill: none; opacity: .34 }
+  :global(.fp-shot) { fill: var(--accent); fill-opacity: .055; stroke: var(--accent); stroke-opacity: .6; stroke-width: .8; opacity: 0 }
+  :global(.fp-head) { stroke: var(--accent); stroke-width: 1.1; fill: none; opacity: .7 }
+
+  .furniture {
+    position: fixed; left: 18px; bottom: 18px; z-index: 40;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+    background: rgba(244, 241, 233, .93); border: 1px solid var(--ink);
+    backdrop-filter: blur(3px);
+  }
+  .f-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 6px 9px; border-bottom: 1px solid var(--rule);
+    letter-spacing: .11em; text-transform: uppercase; font-size: 9.5px; color: var(--ink-3);
+    cursor: pointer; user-select: none;
+  }
+  .f-head b { font-weight: 400 }
+  .f-body { padding: 8px 9px 9px }
+  .furniture.closed .f-body { display: none }
+  .furniture.closed .f-head { border-bottom: none }
+  .lyr { display: flex; align-items: center; gap: 7px; padding: 2.5px 0; cursor: pointer }
+  .lyr input {
+    appearance: none; width: 11px; height: 11px; border: 1px solid var(--ink-3);
+    background: transparent; margin: 0; cursor: pointer; flex-shrink: 0;
+  }
+  .lyr input:checked { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--paper) }
+  .lyr span { white-space: nowrap }
+  .lyr small { color: var(--ink-3); font-size: 9.5px }
+  .f-scale { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--rule) }
+  .bar { height: 5px; border: 1px solid var(--ink-2); border-top: none; width: 88px; position: relative; margin-bottom: 4px }
+  .bar::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: var(--ink-2); opacity: .75 }
+  .f-scale div { display: flex; justify-content: space-between; width: 88px; color: var(--ink-3); font-size: 9.5px }
+  #ratio { margin-top: 5px; color: var(--ink-2); font-size: 10.5px; letter-spacing: .03em }
+
+  .readout {
+    position: fixed; right: 18px; bottom: 18px; z-index: 40;
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+    background: rgba(244, 241, 233, .93); border: 1px solid var(--rule);
+    padding: 5px 10px; letter-spacing: .04em; white-space: nowrap; transition: opacity .3s;
+  }
+  .readout b { font-weight: 500; color: var(--ink) }
+  .readout .d { color: var(--ink-3) }
+
+  @media (max-width: 900px) {
+    .readout { display: none }
+    .furniture { left: 10px; bottom: 10px; font-size: 10px }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg > div { transition: none }
+  }
+</style>
+
+<script>
+  const bg = document.querySelector('.bg') as HTMLElement | null;
+  if (bg) {
+    const d = bg.dataset;
+    const LAT0 = +d.lat0!, LAT1 = +d.lat1!, LON0 = +d.lon0!, LON1 = +d.lon1!;
+    const VB = { w: +d.w!, h: +d.h! };
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const state: Record<string, boolean> = {
+      contours: true, graticule: true, flight: true, readout: true,
+      motion: !reduced, panel: false,
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem('layers') || 'null');
+      if (saved) for (const k of Object.keys(state)) if (k in saved) state[k] = !!saved[k];
+      if (reduced) state.motion = false;
+    } catch {}
+    const save = () => { try { localStorage.setItem('layers', JSON.stringify(state)); } catch {} };
+
+    /* ---------- terrain sizing ---------- */
+    const img = document.querySelector('#l-contours img') as HTMLImageElement | null;
+    let box = { x: 0, y: 0, w: VB.w, h: VB.h };
+    function fitContours() {
+      if (!img) return;
+      const s = Math.max(innerWidth / VB.w, innerHeight / VB.h) * 1.18;
+      const w = VB.w * s, h = VB.h * s;
+      box = { x: (innerWidth - w) / 2, y: (innerHeight - h) / 2, w, h };
+      img.style.width = w + 'px';
+      img.style.height = h + 'px';
+      img.style.left = box.x + 'px';
+      img.style.top = box.y + 'px';
+    }
+    const lonAt = (px: number) => LON0 + ((px - box.x) / box.w) * (LON1 - LON0);
+    const latAt = (py: number) => LAT1 - ((py - box.y) / box.h) * (LAT1 - LAT0);
+
+    /* ---------- graticule: scroll changes the scale ---------- */
+    const STEPS = [
+      { px: 170, ratio: '1:250 000', bar: '5 km', mode: 'deg' },
+      { px: 118, ratio: '1:100 000', bar: '2 km', mode: 'min' },
+      { px: 78, ratio: '1:50 000', bar: '1 km', mode: 'min' },
+      { px: 52, ratio: '1:25 000', bar: '500 m', mode: 'sec' },
+      { px: 36, ratio: '1:10 000', bar: '200 m', mode: 'sec' },
+    ];
+    const gratG = document.getElementById('grat')!;
+    let curStep = -1;
+
+    function fmt(val: number, mode: string) {
+      const deg = Math.floor(Math.abs(val));
+      const mf = (Math.abs(val) - deg) * 60;
+      const min = Math.floor(mf);
+      const sec = Math.round((mf - min) * 60);
+      if (mode === 'deg') return deg + '°';
+      if (mode === 'min') return `${deg}°${String(min).padStart(2, '0')}′`;
+      return `${deg}°${String(min).padStart(2, '0')}′${String(sec).padStart(2, '0')}″`;
+    }
+
+    function drawGraticule(idx: number) {
+      if (idx === curStep) return;
+      curStep = idx;
+      const st = STEPS[idx];
+      gratG.replaceChildren();
+
+      for (let x = st.px; x < innerWidth; x += st.px) {
+        const major = (x / st.px) % 2 === 0;
+        const l = document.createElementNS(svgNS, 'line');
+        l.setAttribute('x1', String(x)); l.setAttribute('x2', String(x));
+        l.setAttribute('y1', '0'); l.setAttribute('y2', String(innerHeight));
+        l.setAttribute('opacity', major ? '.78' : '.42');
+        gratG.appendChild(l);
+        if (major) {
+          const t = document.createElementNS(svgNS, 'text');
+          t.setAttribute('x', String(x + 4)); t.setAttribute('y', '13');
+          t.textContent = fmt(lonAt(x), st.mode);
+          gratG.appendChild(t);
+        }
+      }
+      for (let y = st.px; y < innerHeight; y += st.px) {
+        const major = (y / st.px) % 2 === 0;
+        const l = document.createElementNS(svgNS, 'line');
+        l.setAttribute('y1', String(y)); l.setAttribute('y2', String(y));
+        l.setAttribute('x1', '0'); l.setAttribute('x2', String(innerWidth));
+        l.setAttribute('opacity', major ? '.78' : '.42');
+        gratG.appendChild(l);
+        if (major) {
+          const t = document.createElementNS(svgNS, 'text');
+          t.setAttribute('x', '5'); t.setAttribute('y', String(y - 4));
+          t.textContent = fmt(latAt(y), st.mode);
+          gratG.appendChild(t);
+        }
+      }
+      document.getElementById('ratio')!.textContent = st.ratio;
+      document.getElementById('barlen')!.textContent = st.bar;
+    }
+
+    /* ---------- survey run ----------
+       Frame is 4:3; forward overlap 65% along the strip, side overlap 30% between
+       strips. Spacing follows from the frame size, so the block is a real block. */
+    const FOOT_W = 148, FOOT_H = 111;
+    const FWD_STEP = Math.round(FOOT_W * 0.35);
+    const LANE_GAP = Math.round(FOOT_H * 0.70);
+    const PEAK = 0.30;
+    const DUR = 58000;
+    const PHASE0 = 0.44;      // start part-way in, so a block is already laid down
+
+    const flightG = document.getElementById('flight')!;
+    let ghost: SVGPathElement | null = null, flown: SVGPathElement, head: SVGGElement;
+    let shots: SVGRectElement[] = [];
+    let pathLen = 0, TRAIL = 520, shotHead = 0, shotTail = 0, lastAt = 0, t0: number | null = null;
+
+    function buildFlight() {
+      flightG.replaceChildren();
+      shots = [];
+      const inset = 64;
+      const lanes = Math.max(3, Math.round((innerHeight - inset * 2) / LANE_GAP) + 1);
+      const gap = (innerHeight - inset * 2) / (lanes - 1);
+      const x0 = inset, x1 = innerWidth - inset;
+      const laneYs: number[] = [];
+      let dd = '';
+
+      for (let k = 0; k < lanes; k++) {
+        const y = inset + k * gap;
+        laneYs.push(y);
+        const ltr = k % 2 === 0;
+        dd += (k === 0 ? 'M' : 'L') + (ltr ? x0 : x1) + ' ' + y;
+        dd += 'L' + (ltr ? x1 : x0) + ' ' + y;
+        if (k < lanes - 1) {
+          const ny = inset + (k + 1) * gap, turn = ltr ? x1 : x0, dir = ltr ? 30 : -30;
+          dd += `C${turn + dir} ${y} ${turn + dir} ${ny} ${turn} ${ny}`;
+        }
+      }
+
+      ghost = document.createElementNS(svgNS, 'path');
+      ghost.setAttribute('d', dd); ghost.setAttribute('class', 'fp-ghost');
+      flightG.appendChild(ghost);
+
+      flown = document.createElementNS(svgNS, 'path');
+      flown.setAttribute('d', dd); flown.setAttribute('class', 'fp-flown');
+      flightG.appendChild(flown);
+
+      pathLen = ghost.getTotalLength();
+      // Keep ~2.4 strips alive so two or three adjacent strips overlap on screen at
+      // once; a shorter trail makes the side overlap impossible to see.
+      TRAIL = Math.min(pathLen * 0.55, (pathLen / lanes) * 2.4);
+
+      // The camera only fires on the straight strips — the turns stay empty.
+      for (let s = FWD_STEP / 2; s < pathLen; s += FWD_STEP) {
+        const pt = ghost.getPointAtLength(s);
+        if (!laneYs.some(y => Math.abs(pt.y - y) < 1.5)) continue;
+        const r = document.createElementNS(svgNS, 'rect');
+        r.setAttribute('x', (pt.x - FOOT_W / 2).toFixed(1));
+        r.setAttribute('y', (pt.y - FOOT_H / 2).toFixed(1));
+        r.setAttribute('width', String(FOOT_W));
+        r.setAttribute('height', String(FOOT_H));
+        r.setAttribute('class', 'fp-shot');
+        (r as any).__at = s;
+        flightG.appendChild(r);
+        shots.push(r);
+      }
+      shotHead = shotTail = 0; lastAt = 0;
+
+      head = document.createElementNS(svgNS, 'g');
+      head.setAttribute('class', 'fp-head');
+      for (const [x1c, y1c, x2c, y2c] of [[-7, 0, 7, 0], [0, -7, 0, 7]]) {
+        const l = document.createElementNS(svgNS, 'line');
+        l.setAttribute('x1', String(x1c)); l.setAttribute('y1', String(y1c));
+        l.setAttribute('x2', String(x2c)); l.setAttribute('y2', String(y2c));
+        head.appendChild(l);
+      }
+      flightG.appendChild(head);
+    }
+
+    function frame(ts: number) {
+      if (!state.flight || !ghost) { requestAnimationFrame(frame); return; }
+      if (!state.motion) {
+        flown.style.strokeDasharray = 'none';
+        flown.style.strokeDashoffset = '0';
+        head.style.opacity = '0';
+        const burst = Math.ceil(TRAIL / FWD_STEP);
+        shots.forEach((r, q) => { r.style.opacity = q < burst ? '.13' : '0'; });
+        requestAnimationFrame(frame); return;
+      }
+      head.style.opacity = '';
+      if (t0 === null) t0 = ts;
+      const at = ((((ts - t0) / DUR) + PHASE0) % 1) * pathLen;
+
+      if (at < lastAt) { shots.forEach(r => { r.style.opacity = '0'; }); shotHead = shotTail = 0; }
+      lastAt = at;
+
+      flown.style.strokeDasharray = TRAIL + ' ' + pathLen;
+      flown.style.strokeDashoffset = String(-(at - TRAIL));
+
+      const pt = ghost.getPointAtLength(at);
+      head.setAttribute('transform', `translate(${pt.x},${pt.y})`);
+
+      while (shotHead < shots.length && (shots[shotHead] as any).__at <= at) shotHead++;
+      while (shotTail < shotHead && at - (shots[shotTail] as any).__at > TRAIL) {
+        shots[shotTail].style.opacity = '0'; shotTail++;
+      }
+      for (let i = shotTail; i < shotHead; i++) {
+        const age = (at - (shots[i] as any).__at) / TRAIL;
+        shots[i].style.opacity = (PEAK * Math.pow(1 - age, 2.1)).toFixed(3);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    /* ---------- cursor readout ---------- */
+    let dem: number[][] | null = null, demPending = false;
+    function loadDem() {
+      if (dem || demPending) return;
+      demPending = true;
+      fetch('/map/dem.json').then(r => r.json()).then(g => { dem = g; }).catch(() => { demPending = false; });
+    }
+    function elevAt(lat: number, lon: number) {
+      if (!dem) return null;
+      const ny = dem.length, nx = dem[0].length;
+      const j = Math.round(((lat - LAT0) / (LAT1 - LAT0)) * (ny - 1));
+      const i = Math.round(((lon - LON0) / (LON1 - LON0)) * (nx - 1));
+      if (j < 0 || j >= ny || i < 0 || i >= nx) return null;
+      return dem[j][i];
+    }
+
+    const roLat = document.getElementById('ro-lat')!;
+    const roLon = document.getElementById('ro-lon')!;
+    const roEl = document.getElementById('ro-el')!;
+    addEventListener('pointermove', e => {
+      if (!state.readout) return;
+      loadDem();
+      const la = latAt(e.clientY), lo = lonAt(e.clientX);
+      roLat.textContent = la.toFixed(4);
+      roLon.textContent = lo.toFixed(4);
+      const el = elevAt(la, lo);
+      roEl.textContent = el === null ? '—' : String(Math.round(el));
+    }, { passive: true });
+
+    /* ---------- layer panel ---------- */
+    function apply() {
+      (document.getElementById('l-contours') as HTMLElement).hidden = !state.contours;
+      (document.getElementById('l-graticule') as HTMLElement).hidden = !state.graticule;
+      (document.getElementById('l-flight') as HTMLElement).hidden = !state.flight;
+      (document.getElementById('readout') as HTMLElement).style.opacity = state.readout ? '1' : '0';
+      if (!state.motion) t0 = null;
+      save();
+    }
+    for (const name of ['contours', 'graticule', 'flight', 'readout', 'motion']) {
+      const el = document.getElementById('c-' + name) as HTMLInputElement;
+      el.checked = state[name];
+      el.addEventListener('change', () => { state[name] = el.checked; apply(); });
+    }
+
+    const furn = document.getElementById('furniture')!;
+    const chev = document.getElementById('fchev')!;
+    function syncPanel() {
+      furn.classList.toggle('closed', !state.panel);
+      chev.textContent = state.panel ? '−' : '+';
+    }
+    document.getElementById('fhead')!.addEventListener('click', () => {
+      state.panel = !state.panel; syncPanel(); save();
+    });
+
+    function onScroll() {
+      const max = Math.max(1, document.body.scrollHeight - innerHeight);
+      const p = Math.min(1, Math.max(0, scrollY / max));
+      drawGraticule(Math.min(STEPS.length - 1, Math.floor(p * STEPS.length)));
+    }
+    function relayout() { fitContours(); curStep = -1; onScroll(); buildFlight(); }
+
+    addEventListener('resize', relayout, { passive: true });
+    addEventListener('scroll', onScroll, { passive: true });
+
+    relayout();
+    syncPanel();
+    apply();
+    requestAnimationFrame(frame);
+  }
+</script>

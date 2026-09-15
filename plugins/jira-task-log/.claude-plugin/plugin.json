@@ -1,0 +1,17 @@
+{
+  "name": "jira-task-log",
+  "version": "0.2.0",
+  "description": "Jira as the task backend for work done with Claude: files issues, reads the open backlog, closes finished work. Sets itself up on first use.",
+  "author": {
+    "name": "Jakub Charyton"
+  },
+  "homepage": "https://charyton.dev/skills/jira-task-log",
+  "license": "MIT",
+  "keywords": [
+    "jira",
+    "atlassian",
+    "tasks",
+    "backlog",
+    "issue-tracking"
+  ]
+}

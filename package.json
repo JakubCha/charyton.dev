@@ -1,0 +1,21 @@
+{
+  "name": "charyton-dev",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/build-map.mjs && node scripts/pack-skills.mjs",
+    "dev": "npm run generate && astro dev",
+    "build": "npm run generate && astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/rss": "^4.0.0",
+    "@astrojs/sitemap": "^3.2.0",
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "archiver": "^7.0.1"
+  }
+}

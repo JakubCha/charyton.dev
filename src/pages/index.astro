@@ -1,0 +1,130 @@
+---
+import Base from '../layouts/Base.astro';
+import map from '../data/map.json';
+import skills from '../data/skills.json';
+import { SITE } from '../site';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 3);
+
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const deg = (v: number) => `${Math.floor(v)}°${String(Math.round((v % 1) * 60)).padStart(2, '0')}′`;
+const kb = (n: number) => `${Math.round(n / 1024)} KB`;
+const { location } = SITE;
+---
+
+<Base>
+  <div class="plate">
+    <div class="sheet">
+      <div class="hero halo">
+        <div class="who">{SITE.disciplines.join(' · ')}</div>
+        <h1>{SITE.name}</h1>
+        <p class="role">{SITE.tagline}</p>
+        <div class="coords mono">
+          <span>{location.lat.toFixed(4)}° N</span><span class="sep">|</span>
+          <span>{location.lon.toFixed(4)}° E</span><span class="sep">|</span>
+          <span>{location.city}, {location.country}</span><span class="sep">|</span>
+          <span>{location.crs}</span>
+        </div>
+      </div>
+      <div class="sheetlabel">
+        <span>Base layer — {map.name}</span>
+        <span>{deg(map.lat0)}–{deg(map.lat1)} N · {deg(map.lon0)}–{deg(map.lon1)} E</span>
+        <span>{map.source} · contour interval {map.contourInterval} m</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="prose">
+    <div class="sheet">
+      <div class="prose-in halo">
+        <p>
+          Remote sensing projects rarely fail on the modelling. They fail on everything around it:
+          coordinate systems that disagree, pipelines nobody can re-run six months later, training
+          sets that quietly stop matching the imagery.
+        </p>
+        <p>
+          I have spent seven years on that unglamorous half, moving terabytes of LIDAR and imagery
+          through systems that other people have to maintain after me, which changes how you build
+          them. Quality control that catches a bad block before the client does. Spatial data
+          infrastructure someone else can pick up two years from now without calling me.
+        </p>
+        <p>
+          I pick the tool to fit the problem rather than the other way round, so it is Python, Rust
+          or R depending on what the work actually needs. Often enough the answer turns out not to
+          be software at all.
+        </p>
+        <p>
+          I also build tooling for <a href="#skills">Claude Code</a>, mostly because I got tired of
+          explaining the same GDAL invocation to myself every few months. Those are below, free to take.
+        </p>
+        <p>Based in {location.city}.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="idx" id="skills">
+    <div class="sheet">
+      <div class="idx-head halo tight">
+        <h2>Claude Skills</h2>
+        <div class="tick">
+          Index · {skills.entries.length} {skills.entries.length === 1 ? 'entry' : 'entries'}
+        </div>
+      </div>
+      <p class="idx-note halo tight">
+        Skills I use daily and keep public. Add the marketplace once and they update themselves,
+        or take a single <code>.zip</code> and drop it in <code>~/.claude/skills/</code>.
+      </p>
+
+      <div class="rows halo">
+        {skills.entries.map(s => (
+          <div class="row">
+            <div class="r-name">
+              {s.name}
+              <span class="r-ver">v{s.version}{s.license ? ` · ${s.license}` : ''}</span>
+            </div>
+            <div class="r-desc">{s.description}</div>
+            <div class="r-get">
+              <a href={s.zip} download>Download .zip</a>
+              <span>{kb(s.zipBytes)} · {s.files} files</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div class="install">
+        <div class="k">All of them</div>
+        <div class="v"><span>/</span>plugin marketplace add jcharyton/charyton.dev</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="writing">
+    <div class="sheet">
+      <div class="idx-head halo tight">
+        <h2>Writing</h2>
+        <div class="tick">Occasional · RSS available</div>
+      </div>
+      {posts.length ? (
+        <>
+          <div class="entries halo">
+            {posts.map(p => (
+              <a class="entry" href={`/blog/${p.id}`}>
+                <span class="e-date">{fmtDate(p.data.date)}</span>
+                <span class="e-title">{p.data.title}</span>
+                <span class="e-len">{Math.max(1, Math.round((p.body?.split(/\s+/).length ?? 0) / 220))} min</span>
+              </a>
+            ))}
+          </div>
+          <a class="more halo tight" href="/blog">All posts →</a>
+        </>
+      ) : (
+        <p class="idx-note halo tight">Nothing published yet.</p>
+      )}
+    </div>
+  </div>
+</Base>

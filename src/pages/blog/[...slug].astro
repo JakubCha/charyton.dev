@@ -1,0 +1,29 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map(post => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+const minutes = Math.max(1, Math.round((post.body?.split(/\s+/).length ?? 0) / 220));
+---
+
+<Base title={post.data.title} description={post.data.summary}>
+  <div class="sheet">
+    <article class="article halo">
+      <h1>{post.data.title}</h1>
+      <div class="meta">{fmtDate(post.data.date)} · {minutes} min read</div>
+      <div class="article-body">
+        <Content />
+      </div>
+      <p style="margin-top:48px"><a class="more" href="/blog">← All posts</a></p>
+    </article>
+  </div>
+</Base>
