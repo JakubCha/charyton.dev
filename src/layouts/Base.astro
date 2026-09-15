@@ -18,7 +18,7 @@ const path = Astro.url.pathname;
 const nav = [
   { label: 'Skills', href: '/#skills' },
   { label: 'Writing', href: '/blog' },
-  { label: 'Contact', href: 'mailto:hello@charyton.dev' },
+  { label: 'Contact', href: `mailto:${SITE.email}` },
 ];
 ---
 

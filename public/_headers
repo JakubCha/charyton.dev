@@ -1,0 +1,7 @@
+# The contour sheet and elevation grid are rebuilt only when the DEM changes, and both
+# are content-addressed by the build. Serving them stale for a year is the point.
+/map/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/skills/*.zip
+  Cache-Control: public, max-age=3600

@@ -9,7 +9,7 @@ at the same code.
 ## Install the plugins
 
 ```
-/plugin marketplace add jcharyton/charyton.dev
+/plugin marketplace add JakubCha/charyton.dev
 /plugin install jira-task-log@charyton
 ```
 
